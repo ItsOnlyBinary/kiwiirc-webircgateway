@@ -76,6 +76,7 @@ type Config struct {
 	ReCaptchaKey          string
 	Secret                string
 	Plugins               []string
+	ChannelPasswords      map[string]map[string]string
 }
 
 func NewConfig(gateway *Gateway) *Config {
@@ -146,6 +147,7 @@ func (c *Config) Load() error {
 	c.ClientRealname = ""
 	c.ClientUsername = ""
 	c.ClientHostname = ""
+	c.ChannelPasswords = make(map[string]map[string]string)
 
 	for _, section := range cfg.Sections() {
 		if strings.Index(section.Name(), "DEFAULT") == 0 {
@@ -301,6 +303,23 @@ func (c *Config) Load() error {
 					continue
 				}
 				c.ReverseProxies = append(c.ReverseProxies, *validRange)
+			}
+		}
+
+		if section.Name() == "channel.passwords" {
+			for _, network := range section.KeyStrings() {
+				if _, ok := c.ChannelPasswords[network]; !ok {
+					c.ChannelPasswords[network] = make(map[string]string)
+				}
+				channels := section.Key(network).Strings(",")
+				for _, pair := range channels {
+					split := strings.Split(pair, " ")
+					if len(split) != 2 {
+						continue
+					}
+					c.ChannelPasswords[network][split[0]] = split[1]
+				}
+
 			}
 		}
 	}

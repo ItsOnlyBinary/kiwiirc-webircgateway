@@ -215,6 +215,18 @@ func (c *Client) ProcessLineFromClient(line string) (string, error) {
 		maybeConnectUpstream()
 	}
 
+	if strings.ToUpper(message.Command) == "JOIN" && len(message.Params) == 1 {
+		channelPasswords := c.Gateway.Config.ChannelPasswords
+		if _, ok := channelPasswords[c.DestHost]; ok {
+			channel := strings.ToLower(message.Params[0])
+			if password, ok := channelPasswords[c.DestHost][channel]; ok {
+				message.Params = append(message.Params, password)
+				line = message.ToLine()
+			}
+		}
+		// spew.Dump(message, c.DestHost)
+	}
+
 	if strings.ToUpper(message.Command) == "ENCODING" {
 		if len(message.Params) > 0 {
 			encoding, _ := charset.Lookup(message.Params[0])
