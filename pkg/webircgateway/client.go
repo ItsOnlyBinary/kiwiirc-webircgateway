@@ -343,7 +343,10 @@ func (c *Client) makeUpstreamConnection() (io.ReadWriteCloser, error) {
 		}
 
 		if upstreamConfig.TLS {
-			tlsConfig := &tls.Config{InsecureSkipVerify: true}
+			tlsConfig := &tls.Config{
+				InsecureSkipVerify: true,
+				Certificates:       upstreamConfig.WebircCertificate,
+			}
 			tlsConn := tls.Client(conn, tlsConfig)
 			err := tlsConn.Handshake()
 			if err != nil {
@@ -697,6 +700,11 @@ func (c *Client) configureUpstream() ConfigUpstream {
 	upstreamConfig.Throttle = c.Gateway.Config.GatewayThrottle
 	upstreamConfig.WebircPassword = c.Gateway.findWebircPassword(c.DestHost)
 
+	if upstreamConfig.WebircPassword != "" && c.Gateway.Config.WebircCert != nil {
+		upstreamConfig.WebircCertificate = []tls.Certificate{
+			*c.Gateway.Config.WebircCert,
+		}
+	}
 	return upstreamConfig
 }
 
