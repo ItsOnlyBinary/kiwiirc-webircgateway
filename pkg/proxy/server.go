@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/tls"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"log"
@@ -13,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/kiwiirc/webircgateway/pkg/identd"
 )
 
@@ -29,21 +31,18 @@ var identdRpc *identd.RpcClient
 var Server net.Listener
 
 type HandshakeMeta struct {
-	Host      string `json:"host"`
-	Port      int    `json:"port"`
-	TLS       bool   `json:"ssl"`
-	Username  string `json:"username"`
-	Interface string `json:"interface"`
+	Host      string                   `json:"host"`
+	Port      int                      `json:"port"`
+	TLS       bool                     `json:"ssl"`
+	Username  string                   `json:"username"`
+	Interface string                   `json:"interface"`
+	RawCerts  []map[string]interface{} `json:"certs"`
 }
 
-func MakeClient(conn net.Conn, webircCert *tls.Certificate) *Client {
-	client := &Client{
+func MakeClient(conn net.Conn) *Client {
+	return &Client{
 		Client: conn,
 	}
-	if webircCert != nil {
-		client.WebircCertificate = []tls.Certificate{*webircCert}
-	}
-	return client
 }
 
 type Client struct {
@@ -92,6 +91,22 @@ func (c *Client) Handshake() error {
 		c.Client.Write([]byte(ResponseError))
 		return unmarshalErr
 	}
+
+	for i := 0; i < len(meta.RawCerts); i++ {
+		certificate := tls.Certificate{}
+		chain := meta.RawCerts[i]["chain"].([]interface{})
+		for j := 0; j < len(chain); j++ {
+			cert, err := pem.Decode([]byte(chain[j].(string)))
+			if err != nil {
+				fmt.Println("eeeeerrrrr" + string(err))
+			}
+			certificate.Certificate = append(certificate.Certificate, cert.Bytes)
+		}
+		certificate.PrivateKey = meta.RawCerts[i]["key"].([]byte)
+		c.WebircCertificate = append(c.WebircCertificate, certificate)
+	}
+
+	spew.Dump(meta)
 
 	if meta.Host == "" || meta.Port == 0 || meta.Username == "" || meta.Interface == "" {
 		c.Client.Write([]byte(ResponseError))
@@ -148,7 +163,10 @@ func (c *Client) ConnectUpstream() error {
 	}
 
 	if c.TLS {
-		tlsConfig := &tls.Config{InsecureSkipVerify: true}
+		tlsConfig := &tls.Config{
+			InsecureSkipVerify: true,
+			Certificates:       c.WebircCertificate,
+		}
 		tlsConn := tls.Client(conn, tlsConfig)
 		err := tlsConn.Handshake()
 		if err != nil {
@@ -190,7 +208,7 @@ func (c *Client) Pipe() {
 	}
 }
 
-func Start(laddr string, webircCert *tls.Certificate) {
+func Start(laddr string) {
 	srv, err := net.Listen("tcp", laddr)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -210,7 +228,7 @@ func Start(laddr string, webircCert *tls.Certificate) {
 			break
 		}
 
-		c := MakeClient(conn, webircCert)
+		c := MakeClient(conn)
 		go c.Run()
 	}
 }

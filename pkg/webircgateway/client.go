@@ -303,6 +303,16 @@ func (c *Client) makeUpstreamConnection() (io.ReadWriteCloser, error) {
 	client := c
 	upstreamConfig := c.UpstreamConfig
 
+	// TODO remove me
+	upstreamConfig.Proxy = &ConfigProxy{
+		Type:      "kiwi",
+		Hostname:  "127.0.0.1",
+		Port:      7999,
+		TLS:       false,
+		Username:  client.IrcState.Username,
+		Interface: "0.0.0.0",
+	}
+
 	var connection io.ReadWriteCloser
 
 	if upstreamConfig.Proxy == nil {
@@ -370,6 +380,7 @@ func (c *Client) makeUpstreamConnection() (io.ReadWriteCloser, error) {
 		conn.DestTLS = upstreamConfig.TLS
 		conn.Username = upstreamConfig.Proxy.Username
 		conn.ProxyInterface = upstreamConfig.Proxy.Interface
+		conn.Certificates = upstreamConfig.WebircCertificate
 
 		dialErr := conn.Dial(fmt.Sprintf(
 			"%s:%d",

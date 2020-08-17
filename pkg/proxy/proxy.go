@@ -1,8 +1,12 @@
 package proxy
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 )
@@ -31,6 +35,7 @@ type KiwiProxyConnection struct {
 	DestTLS        bool
 	State          KiwiProxyState
 	Conn           *net.Conn
+	Certificates   []tls.Certificate
 }
 
 func MakeKiwiProxyConnection() *KiwiProxyConnection {
@@ -61,6 +66,22 @@ func (c *KiwiProxyConnection) Dial(proxyServerAddr string) error {
 
 	c.Conn = &conn
 	c.State = KiwiProxyStateHandshaking
+	Certificates := make([]map[string]interface{}, 0)
+	for i := 0; i < len(c.Certificates); i++ {
+		cert := c.Certificates[i].Certificate
+		chain := make([][]byte, 0)
+		for j := 0; j < len(cert); j++ {
+			chain = append(chain, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert[j]}))
+		}
+		key, err := x509.MarshalPKCS8PrivateKey(c.Certificates[i].PrivateKey)
+		if err != nil {
+			return errors.New("Failed to marshal private key")
+		}
+		Certificates = append(Certificates, map[string]interface{}{
+			"chain": chain,
+			"key":   key,
+		})
+	}
 
 	meta, _ := json.Marshal(map[string]interface{}{
 		"username":  c.Username,
@@ -68,7 +89,10 @@ func (c *KiwiProxyConnection) Dial(proxyServerAddr string) error {
 		"host":      c.DestHost,
 		"port":      c.DestPort,
 		"ssl":       c.DestTLS,
+		"certs":     Certificates,
 	})
+
+	fmt.Println(string(meta))
 
 	(*c.Conn).Write(append(meta, byte('\n')))
 

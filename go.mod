@@ -3,6 +3,7 @@ module github.com/kiwiirc/webircgateway
 require (
 	github.com/OneOfOne/xxhash v1.2.4
 	github.com/cespare/xxhash v1.1.0 // indirect
+	github.com/davecgh/go-spew v1.1.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gobwas/glob v0.2.3
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
