@@ -76,6 +76,13 @@ type Client struct {
 	}
 	// The specific message-tags CAP that the client has requested if we are wrapping it
 	RequestedMessageTagsCap string
+
+	ISupport struct {
+		Received bool
+		Injected bool
+		Prefix   irc.Mask
+		Tags     map[string]string
+	}
 }
 
 var nextClientID uint64 = 1
@@ -242,6 +249,7 @@ func (c *Client) connectUpstream() {
 	client := c
 
 	c.UpstreamStarted = true
+	c.ISupport.Received = false
 
 	var upstreamConfig ConfigUpstream
 

@@ -33,6 +33,7 @@ func (c *Client) ProcessLineFromUpstream(data string) string {
 	if pLen > 0 && m.Command == "001" {
 		client.IrcState.Nick = m.Params[0]
 		client.State = ClientStateConnected
+		client.ISupport.Prefix = *m.Prefix
 
 		// Throttle writes if configured, but only after registration is complete. Typical IRCd
 		// behavior is to not throttle registration commands.
@@ -41,6 +42,7 @@ func (c *Client) ProcessLineFromUpstream(data string) string {
 	if pLen > 0 && m.Command == "005" {
 		// If EXTJWT is supported by the IRC server, disable it here
 		foundExtJwt := false
+
 		for _, param := range m.Params {
 			if strings.HasPrefix(param, "EXTJWT") {
 				c.Log(1, "Upstream already supports EXTJWT, disabling feature")
@@ -50,6 +52,24 @@ func (c *Client) ProcessLineFromUpstream(data string) string {
 
 		if foundExtJwt {
 			c.Features.ExtJwt = false
+		}
+
+		c.ISupport.Received = true
+		c.ISupport.Tags = m.Tags
+	}
+	if c.ISupport.Received && !c.ISupport.Injected && m.Command != "005" {
+		c.ISupport.Injected = true
+		msg := irc.NewMessage()
+		msg.Command = "005"
+		msg.Prefix = &c.ISupport.Prefix
+		msg.Tags = c.ISupport.Tags
+		msg.Params = append(msg.Params, c.IrcState.Nick)
+		if c.Features.ExtJwt {
+			msg.Params = append(msg.Params, "EXTJWT=1")
+		}
+		msg.Params = append(msg.Params, "are supported by this server")
+		if len(msg.Params) > 2 {
+			c.SendClientSignal("data", msg.ToLine())
 		}
 	}
 	if pLen > 0 && m.Command == "JOIN" && m.Prefix.Nick == c.IrcState.Nick {
