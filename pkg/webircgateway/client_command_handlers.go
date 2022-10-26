@@ -347,6 +347,10 @@ func (c *Client) ProcessLineFromClient(line string) (string, error) {
 				}
 			}
 
+			if len(newCaps) == 0 {
+				c.SendClientSignal("data", "CAP * ACK :"+c.RequestedMessageTagsCap)
+				return "", nil
+			}
 			message.Params[1] = strings.Join(newCaps, " ")
 			line = message.ToLine()
 		} else if !containsOneOf(reqCaps, capsThatEnableMessageTags) {
