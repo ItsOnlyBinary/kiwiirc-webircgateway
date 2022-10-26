@@ -13,6 +13,8 @@ import (
 	"golang.org/x/time/rate"
 )
 
+var MAX_EXTJWT_SIZE = 200
+
 /*
  * ProcessLineFromUpstream
  * Processes and makes any changes to a line of data sent from an upstream
@@ -431,21 +433,28 @@ func (c *Client) ProcessLineFromClient(line string) (string, error) {
 		if tokenTarget == "" || tokenTarget == "*" {
 			tokenM.Params = append(tokenM.Params, "*")
 		} else {
+			targetChan := c.IrcState.GetChannel(tokenTarget)
+			if targetChan == nil {
+				// Channel does not exist in IRC State, send so such channel message
+				failMessage := irc.Message{
+					Command: "403",
+					Prefix:  &c.ISupport.Prefix,
+					Params:  []string{c.IrcState.Nick, tokenTarget, "No such channel"},
+				}
+				c.SendClientSignal("data", failMessage.ToLine())
+				return "", nil
+			}
+
 			tokenM.Params = append(tokenM.Params, tokenTarget)
 
-			tokenForChan := c.IrcState.GetChannel(tokenTarget)
-			if tokenForChan != nil {
-				tokenData["channel"] = tokenForChan.Name
-				tokenData["joined"] = tokenForChan.Joined.Unix()
+			tokenData["channel"] = targetChan.Name
+			tokenData["joined"] = targetChan.Joined.Unix()
 
-				modes := []string{}
-				for mode := range tokenForChan.Modes {
-					modes = append(modes, mode)
-				}
-				tokenData["cmodes"] = modes
-			} else {
-				tokenData["channel"] = tokenTarget
+			modes := []string{}
+			for mode := range targetChan.Modes {
+				modes = append(modes, mode)
 			}
+			tokenData["cmodes"] = modes
 		}
 
 		if tokenService == "" || tokenService == "*" {
@@ -463,8 +472,17 @@ func (c *Client) ProcessLineFromClient(line string) (string, error) {
 			return "", nil
 		}
 
-		tokenM.Params = append(tokenM.Params, tokenSigned)
+		// Spit token if it exceeds max length
+		for len(tokenSigned) > MAX_EXTJWT_SIZE {
+			tokenSignedPart := tokenSigned[:MAX_EXTJWT_SIZE]
+			tokenSigned = tokenSigned[MAX_EXTJWT_SIZE:]
 
+			tokenPartM := tokenM
+			tokenPartM.Params = append(tokenPartM.Params, "*", tokenSignedPart)
+			c.SendClientSignal("data", tokenPartM.ToLine())
+		}
+
+		tokenM.Params = append(tokenM.Params, tokenSigned)
 		c.SendClientSignal("data", tokenM.ToLine())
 
 		return "", nil
