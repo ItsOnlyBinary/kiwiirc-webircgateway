@@ -119,22 +119,28 @@ func NewThrottledStringChannel(wrappedChan chan string, limiter *rate.Limiter) *
 }
 
 func (c *ThrottledStringChannel) run() {
-	for {
-		select {
-		case msg, ok := <-c.in:
-			if !ok {
-				close(c.out)
-				return
-			}
-
-			// start := time.Now()
-
-			c.Wait(context.Background())
-
-			// elapsed := time.Since(start)
-			// fmt.Printf("waited %v to send %v\n", elapsed, msg)
-
-			c.out <- msg
-		}
+	for msg := range c.in {
+		c.Wait(context.Background())
+		c.out <- msg
 	}
+	close(c.out)
+
+	// for {
+	// 	select {
+	// 	case msg, ok := <-c.in:
+	// 		if !ok {
+	// 			close(c.out)
+	// 			return
+	// 		}
+
+	// 		// start := time.Now()
+
+	// 		c.Wait(context.Background())
+
+	// 		// elapsed := time.Since(start)
+	// 		// fmt.Printf("waited %v to send %v\n", elapsed, msg)
+
+	// 		c.out <- msg
+	// 	}
+	// }
 }

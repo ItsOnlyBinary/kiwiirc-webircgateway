@@ -55,13 +55,9 @@ func (s *Gateway) Log(level int, format string, args ...interface{}) {
 	if level < s.Config.LogLevel {
 		return
 	}
-
 	levels := [...]string{"L_DEBUG", "L_INFO", "L_WARN"}
 	line := fmt.Sprintf(levels[level-1]+" "+format, args...)
-
-	select {
-	case s.LogOutput <- line:
-	}
+	s.LogOutput <- line
 }
 
 func (s *Gateway) Start() {
@@ -132,7 +128,7 @@ func (s *Gateway) initHttpRoutes() error {
 
 	if !engineConfigured {
 		s.Log(3, "No server engines configured")
-		return errors.New("No server engines configured")
+		return errors.New("no server engines configured")
 	}
 
 	// Add some general server info about this webircgateway instance
@@ -152,7 +148,7 @@ func (s *Gateway) initHttpRoutes() error {
 		}
 
 		out := ""
-		for item := range s.Clients.Iter() {
+		for item := range s.Clients.IterBuffered() {
 			c := item.Val.(*Client)
 			line := fmt.Sprintf(
 				"%s:%d %s %s!%s %s %s",

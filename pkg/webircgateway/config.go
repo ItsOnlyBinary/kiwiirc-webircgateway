@@ -190,9 +190,7 @@ func (c *Config) Load() error {
 		}
 
 		if section.Name() == "dnsbl.servers" {
-			for _, addr := range section.KeyStrings() {
-				c.DnsblServers = append(c.DnsblServers, addr)
-			}
+			c.DnsblServers = append(c.DnsblServers, section.KeyStrings()...)
 		}
 
 		if section.Name() == "gateway" {
@@ -235,7 +233,7 @@ func (c *Config) Load() error {
 			server.LetsEncryptCacheDir = confKeyAsString(section.Key("letsencrypt_cache"), "")
 
 			if strings.HasSuffix(server.LetsEncryptCacheDir, ".cache") {
-				return errors.New("Syntax has changed. Please update letsencrypt_cache to a directory path (eg ./cache)")
+				return errors.New("syntax has changed. Please update letsencrypt_cache to a directory path (eg ./cache)")
 			}
 
 			c.Servers = append(c.Servers, server)

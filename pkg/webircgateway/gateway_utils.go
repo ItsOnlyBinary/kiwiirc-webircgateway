@@ -57,7 +57,7 @@ func (s *Gateway) findUpstream() (ConfigUpstream, error) {
 	var ret ConfigUpstream
 
 	if len(s.Config.Upstreams) == 0 {
-		return ret, errors.New("No upstreams available")
+		return ret, errors.New("no upstreams available")
 	}
 
 	randIdx := rand.Intn(len(s.Config.Upstreams))
@@ -134,9 +134,5 @@ func (s *Gateway) isRequestSecure(req *http.Request) bool {
 	}
 
 	headerVal := strings.ToLower(req.Header.Get("x-forwarded-proto"))
-	if headerVal == "https" {
-		return true
-	}
-
-	return false
+	return headerVal == "https"
 }
